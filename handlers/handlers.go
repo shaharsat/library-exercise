@@ -122,16 +122,11 @@ func UpdateBookTitleById(c *gin.Context) {
 		return
 	}
 
-	scriptFormat := "ctx._source.%s = \"%v\"" // Is this vulnerable to ElasticSearch Injection?
-	scriptString := fmt.Sprintf(scriptFormat, "title", title)
-	script := elastic.NewScript(scriptString).Lang("painless")
-
 	_, err := models.ElasticClient.
-		UpdateByQuery().
+		Update().
 		Index("books").
-		Query(elastic.NewTermQuery("index._id", id)).
-		MaxDocs(1).
-		Script(script).
+		Id(id).
+		Doc(gin.H{"title": title}).
 		Do(c)
 
 	if err != nil {
