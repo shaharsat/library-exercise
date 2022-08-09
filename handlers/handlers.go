@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"gin/models"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/olivere/elastic/v7"
 	"gopkg.in/redis.v5"
 	"html"
@@ -85,10 +84,7 @@ func CreateBook(c *gin.Context) {
 		return
 	}
 
-	id := uuid.New().String()
-
 	book := models.Book{
-		Id:             id,
 		Title:          title,
 		AuthorName:     authorName,
 		Price:          priceF,
@@ -96,7 +92,7 @@ func CreateBook(c *gin.Context) {
 		PublishDate:    models.Date(publishDateT),
 	}
 
-	_, err = models.ElasticClient.Index().Index("books").BodyJson(book).Do(c)
+	doc, err := models.ElasticClient.Index().Index("books").BodyJson(book).Do(c)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
@@ -105,7 +101,7 @@ func CreateBook(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"status": "created",
-		"id":     id,
+		"id":     doc.Id,
 	})
 }
 
@@ -159,9 +155,9 @@ func GetBookById(c *gin.Context) {
 	}
 
 	doc, err := models.ElasticClient.
-		Search().
+		Get().
 		Index("books").
-		Query(elastic.NewTermQuery("index._id", id)).
+		Id(id).
 		Do(c)
 
 	if err != nil {
@@ -169,13 +165,13 @@ func GetBookById(c *gin.Context) {
 		return
 	}
 
-	if doc.Hits.TotalHits.Value == 0 {
+	if !doc.Found {
 		c.JSON(http.StatusNotFound, gin.H{"message": fmt.Sprintf("book with Id: '%v' not found", id)})
 		return
 	}
 
 	var book models.Book
-	err = json.Unmarshal(doc.Hits.Hits[0].Source, &book)
+	err = json.Unmarshal(doc.Source, &book)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 	}

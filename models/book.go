@@ -7,7 +7,6 @@ import (
 )
 
 type Book struct {
-	Id             string  `json:"index._id" binding:"required"`
 	Title          string  `json:"title" binding:"required"`
 	AuthorName     string  `json:"author_name"  binding:"required"`
 	Price          float64 `json:"price"  binding:"required"`
