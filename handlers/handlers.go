@@ -6,93 +6,20 @@ import (
 	"gin/models"
 	"github.com/gin-gonic/gin"
 	"github.com/olivere/elastic/v7"
-	"gopkg.in/redis.v5"
 	"html"
 	"net/http"
 	"strconv"
-	"strings"
-	"time"
 )
 
-type Server struct {
-	ElasticClient *elastic.Client
-	RedisClient   *redis.Client
-}
-
-func validateSearchBook(title string, titleOk bool, authorName string, authorNameOk bool, price string, priceOk bool, ebookAvailable string, ebookAvailableOk bool, publishDate string, publishDateOk bool) error {
-	if (!titleOk || title == "") && (!authorNameOk || authorName == "") && (!priceOk || price == "") && (!ebookAvailableOk || ebookAvailable == "") && (!publishDateOk || publishDate == "") {
-		return fmt.Errorf("no parameter given. requires at least one of the following: 'title', 'authorName', 'price', 'ebookAvailable', 'publishDate")
-	}
-	return nil
-}
-
-func validateCreateBook(title, authorName, price, ebookAvailable, publishDate string) error {
-	missingParameter := make([]string, 0)
-
-	if title == "" {
-		missingParameter = append(missingParameter, "'title'")
-	}
-	if authorName == "" {
-		missingParameter = append(missingParameter, "'authorName'")
-	}
-	if price == "" {
-		missingParameter = append(missingParameter, "'price'")
-	}
-	if ebookAvailable == "" {
-		missingParameter = append(missingParameter, "'ebookAvailable'")
-	}
-	if publishDate == "" {
-		missingParameter = append(missingParameter, "'publishDate'")
-	}
-
-	if len(missingParameter) != 0 {
-		return fmt.Errorf("the following parameters are missing: %v", strings.Join(missingParameter, ","))
-	}
-
-	return nil
-}
+const INDEX_NAME = "books"
 
 func CreateBook(c *gin.Context) {
-	title := c.PostForm("title")
-	authorName := c.PostForm("authorName")
-	price := c.PostForm("price")
-	ebookAvailable := c.PostForm("ebookAvailable")
-	publishDate := c.PostForm("publishDate")
-
-	validationError := validateCreateBook(title, authorName, price, ebookAvailable, publishDate)
-	if validationError != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": validationError.Error()})
-		return
-	}
-
-	priceF, err := strconv.ParseFloat(price, 64)
-	if err != nil {
+	var book models.Book
+	if err := c.ShouldBindJSON(&book); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-		return
 	}
 
-	ebookAvailableB, err := strconv.ParseBool(ebookAvailable)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-		return
-
-	}
-
-	publishDateT, err := time.Parse(models.PUBLISH_DATE_TIME_FORMAT, publishDate)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-		return
-	}
-
-	book := models.Book{
-		Title:          title,
-		AuthorName:     authorName,
-		Price:          priceF,
-		EbookAvailable: ebookAvailableB,
-		PublishDate:    models.Date(publishDateT),
-	}
-
-	doc, err := models.ElasticClient.Index().Index("books").BodyJson(book).Do(c)
+	doc, err := models.ElasticClient.Index().Index(INDEX_NAME).BodyJson(book).Do(c)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
@@ -106,27 +33,19 @@ func CreateBook(c *gin.Context) {
 }
 
 func UpdateBookTitleById(c *gin.Context) {
-	id, idOk := c.GetPostForm("id")
-	title, titleOk := c.GetPostForm("title")
+	id := c.Param("id")
 
-	missingFields := make([]string, 0)
-	if !idOk || id == "" {
-		missingFields = append(missingFields, "'id'")
-	}
-	if !titleOk || title == "" {
-		missingFields = append(missingFields, "'title'")
-	}
-	if len(missingFields) != 0 {
-		validationError := fmt.Errorf("the following fields are missing: %v", missingFields)
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": validationError.Error()})
+	var book *models.Book
+	if err := c.ShouldBindJSON(&book); err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 
 	_, err := models.ElasticClient.
 		Update().
-		Index("books").
+		Index(INDEX_NAME).
 		Id(id).
-		Doc(gin.H{"title": title}).
+		Doc(gin.H{"title": book.Title}).
 		Do(c)
 
 	if err != nil {
@@ -137,21 +56,11 @@ func UpdateBookTitleById(c *gin.Context) {
 }
 
 func GetBookById(c *gin.Context) {
-	id, idOk := c.GetQuery("id")
-
-	missingFields := make([]string, 0)
-	if !idOk || id == "" {
-		missingFields = append(missingFields, "'id'")
-	}
-	if len(missingFields) != 0 {
-		validationError := fmt.Errorf("the following fields are missing: %v", missingFields)
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": validationError.Error()})
-		return
-	}
+	id := c.Param("id")
 
 	doc, err := models.ElasticClient.
 		Get().
-		Index("books").
+		Index(INDEX_NAME).
 		Id(id).
 		Do(c)
 
@@ -175,22 +84,11 @@ func GetBookById(c *gin.Context) {
 }
 
 func DeleteById(c *gin.Context) {
-	id, idOk := c.GetQuery("id")
-
-	missingFields := make([]string, 0)
-	if !idOk || id == "" {
-		missingFields = append(missingFields, "'id'")
-	}
-
-	if len(missingFields) != 0 {
-		validationError := fmt.Errorf("the following fields are missing: %v", missingFields)
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": validationError.Error()})
-		return
-	}
+	id := c.Param("id")
 
 	doc, err := models.ElasticClient.
 		Delete().
-		Index("books").
+		Index(INDEX_NAME).
 		Id(id).
 		Do(c)
 
@@ -203,57 +101,51 @@ func DeleteById(c *gin.Context) {
 }
 
 func Search(c *gin.Context) {
-	title, titleOk := c.GetQuery("title")
-	authorName, authorNameOk := c.GetQuery("authorName")
-	price, priceOk := c.GetQuery("price")
-	ebookAvailable, ebookAvailableOk := c.GetQuery("ebookAvailable")
-	publishDate, publishDateOk := c.GetQuery("publishDate")
+	title := c.Query("title")
+	authorName := c.Query("authorName")
+	minPrice, minPriceOk := c.GetQuery("min_price")
+	maxPrice, maxPriceOk := c.GetQuery("max_price")
 
-	validationError := validateSearchBook(title, titleOk, authorName, authorNameOk, price, priceOk, ebookAvailable, ebookAvailableOk, publishDate, publishDateOk)
-	if validationError != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": validationError.Error()})
-		return
+	index := models.ElasticClient.Search().Index(INDEX_NAME).Pretty(false).Size(10000)
+
+	boolQuery := elastic.NewBoolQuery()
+	if title != "" {
+		boolQuery.Must(elastic.NewMatchQuery("title", html.UnescapeString(title)))
+	}
+	if authorName != "" {
+		boolQuery.Must(elastic.NewMatchQuery("author_name", html.UnescapeString(authorName)))
 	}
 
-	index := models.ElasticClient.Search().Index("books").Pretty(false).Size(10000)
+	priceRangeQuery := elastic.NewRangeQuery("price")
 
-	if titleOk && title != "" {
-		index.Query(elastic.NewMatchQuery("title", "*"+html.UnescapeString(title)+"*"))
-	}
-	if authorNameOk && authorName != "" {
-		index.Query(elastic.NewMatchQuery("author_name", html.UnescapeString(authorName)))
-	}
-
-	if priceOk {
-		priceF, err := strconv.ParseFloat(price, 64)
+	shouldIncludePriceRangeQuery := false
+	if minPriceOk {
+		price, err := strconv.ParseFloat(minPrice, 64)
 		if err == nil {
-			index.Query(elastic.NewMatchQuery("price", priceF))
-		} else {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-			return
-		}
-
-	}
-
-	if ebookAvailableOk {
-		ebookAvailableB, err := strconv.ParseBool(ebookAvailable)
-		if err == nil {
-			index.Query(elastic.NewMatchQuery("ebook_available", ebookAvailableB))
+			index.Query(priceRangeQuery.Gte(price))
+			shouldIncludePriceRangeQuery = true
 		} else {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 			return
 		}
 	}
 
-	if publishDateOk {
-		_, err := time.Parse("2006-01-01", publishDate) // valid time validation
+	if maxPriceOk {
+		price, err := strconv.ParseFloat(maxPrice, 64)
 		if err == nil {
-			index.Query(elastic.NewMatchQuery("publish_date", publishDate))
+			index.Query(priceRangeQuery.Lte(price))
+			shouldIncludePriceRangeQuery = true
 		} else {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 			return
 		}
 	}
+
+	if shouldIncludePriceRangeQuery {
+		boolQuery.Must(priceRangeQuery)
+	}
+
+	index.Query(boolQuery)
 
 	result, err := index.Do(c)
 
@@ -275,7 +167,7 @@ func Search(c *gin.Context) {
 
 func Store(c *gin.Context) {
 	query := models.ElasticClient.Search().
-		Index("books")
+		Index(INDEX_NAME)
 
 	titleAggregation := elastic.NewCardinalityAggregation().Field("_id")
 	authorsAggregation := elastic.NewCardinalityAggregation().Field("author_name.keyword")
@@ -304,9 +196,9 @@ func Store(c *gin.Context) {
 }
 
 func Activity(c *gin.Context) {
-	username := c.Query("username")
+	username := c.Param("username")
 
-	get, err := models.RedisClient.LRange(username, 0, 2).Result()
+	userRequests, err := models.RedisClient.LRange(username, 0, 2).Result()
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
@@ -315,16 +207,18 @@ func Activity(c *gin.Context) {
 		return
 	}
 
-	var ops [3]models.UserRequest
+	ops := make([]models.UserRequest, 0)
 
-	for idx, val := range get {
-		err := json.Unmarshal([]byte(val), &ops[idx])
+	var userRequest models.UserRequest
+	for _, request := range userRequests {
+		err := json.Unmarshal([]byte(request), &userRequests)
 		if err != nil {
 			return
 		}
+		ops = append(ops, userRequest)
 	}
 
-	c.JSON(http.StatusOK, ops[:len(get)])
+	c.JSON(http.StatusOK, ops)
 }
 
 func CacheUserRequest(c *gin.Context) {
