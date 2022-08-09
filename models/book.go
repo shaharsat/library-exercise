@@ -7,33 +7,33 @@ import (
 )
 
 type Book struct {
-	Id             string     `json:"index._id" binding:"required"`
-	Title          string     `json:"title" binding:"required"`
-	AuthorName     string     `json:"author_name"  binding:"required"`
-	Price          float64    `json:"price"  binding:"required"`
-	EbookAvailable bool       `json:"ebook_available"  binding:"required"`
-	PublishDate    CustomTime `json:"publish_date" binding:"required"`
+	Id             string  `json:"index._id" binding:"required"`
+	Title          string  `json:"title" binding:"required"`
+	AuthorName     string  `json:"author_name"  binding:"required"`
+	Price          float64 `json:"price"  binding:"required"`
+	EbookAvailable bool    `json:"ebook_available"  binding:"required"`
+	PublishDate    Date    `json:"publish_date" binding:"required"`
 }
 
-type CustomTime time.Time
+const PUBLISH_DATE_TIME_FORMAT = "2006-01-02"
 
-const ctLayout = "2006-01-02"
+type Date time.Time
 
 // UnmarshalJSON Parses the json string in the custom format
-func (ct *CustomTime) UnmarshalJSON(b []byte) (err error) {
+func (ct *Date) UnmarshalJSON(b []byte) (err error) {
 	s := strings.Trim(string(b), `"`)
-	nt, err := time.Parse(ctLayout, s)
-	*ct = CustomTime(nt)
+	nt, err := time.Parse(PUBLISH_DATE_TIME_FORMAT, s)
+	*ct = Date(nt)
 	return
 }
 
 // MarshalJSON writes a quoted string in the custom format
-func (ct CustomTime) MarshalJSON() ([]byte, error) {
+func (ct Date) MarshalJSON() ([]byte, error) {
 	return []byte(ct.String()), nil
 }
 
 // String returns the time in the custom format
-func (ct *CustomTime) String() string {
+func (ct *Date) String() string {
 	t := time.Time(*ct)
-	return fmt.Sprintf("%q", t.Format(ctLayout))
+	return fmt.Sprintf("%q", t.Format(PUBLISH_DATE_TIME_FORMAT))
 }

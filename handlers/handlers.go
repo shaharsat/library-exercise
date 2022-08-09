@@ -20,14 +20,14 @@ type Server struct {
 	RedisClient   *redis.Client
 }
 
-func (server *Server) validateSearchBook(title string, titleOk bool, authorName string, authorNameOk bool, price string, priceOk bool, ebookAvailable string, ebookAvailableOk bool, publishDate string, publishDateOk bool) error {
+func validateSearchBook(title string, titleOk bool, authorName string, authorNameOk bool, price string, priceOk bool, ebookAvailable string, ebookAvailableOk bool, publishDate string, publishDateOk bool) error {
 	if (!titleOk || title == "") && (!authorNameOk || authorName == "") && (!priceOk || price == "") && (!ebookAvailableOk || ebookAvailable == "") && (!publishDateOk || publishDate == "") {
 		return fmt.Errorf("no parameter given. requires at least one of the following: 'title', 'authorName', 'price', 'ebookAvailable', 'publishDate")
 	}
 	return nil
 }
 
-func (server *Server) validateCreateBook(title, authorName, price, ebookAvailable, publishDate string) error {
+func validateCreateBook(title, authorName, price, ebookAvailable, publishDate string) error {
 	missingParameter := make([]string, 0)
 
 	if title == "" {
@@ -53,14 +53,14 @@ func (server *Server) validateCreateBook(title, authorName, price, ebookAvailabl
 	return nil
 }
 
-func (server *Server) CreateBook(c *gin.Context) {
+func CreateBook(c *gin.Context) {
 	title := c.PostForm("title")
 	authorName := c.PostForm("authorName")
 	price := c.PostForm("price")
 	ebookAvailable := c.PostForm("ebookAvailable")
 	publishDate := c.PostForm("publishDate")
 
-	validationError := server.validateCreateBook(title, authorName, price, ebookAvailable, publishDate)
+	validationError := validateCreateBook(title, authorName, price, ebookAvailable, publishDate)
 	if validationError != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": validationError.Error()})
 		return
@@ -79,7 +79,7 @@ func (server *Server) CreateBook(c *gin.Context) {
 
 	}
 
-	publishDateT, err := time.Parse("2006-01-02", publishDate)
+	publishDateT, err := time.Parse(models.PUBLISH_DATE_TIME_FORMAT, publishDate)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -93,10 +93,10 @@ func (server *Server) CreateBook(c *gin.Context) {
 		AuthorName:     authorName,
 		Price:          priceF,
 		EbookAvailable: ebookAvailableB,
-		PublishDate:    models.CustomTime(publishDateT),
+		PublishDate:    models.Date(publishDateT),
 	}
 
-	_, err = server.ElasticClient.Index().Index("books").BodyJson(book).Do(c)
+	_, err = models.ElasticClient.Index().Index("books").BodyJson(book).Do(c)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
@@ -109,7 +109,7 @@ func (server *Server) CreateBook(c *gin.Context) {
 	})
 }
 
-func (server *Server) UpdateBookTitleById(c *gin.Context) {
+func UpdateBookTitleById(c *gin.Context) {
 	id, idOk := c.GetPostForm("id")
 	title, titleOk := c.GetPostForm("title")
 
@@ -130,7 +130,7 @@ func (server *Server) UpdateBookTitleById(c *gin.Context) {
 	scriptString := fmt.Sprintf(scriptFormat, "title", title)
 	script := elastic.NewScript(scriptString).Lang("painless")
 
-	_, err := server.ElasticClient.
+	_, err := models.ElasticClient.
 		UpdateByQuery().
 		Index("books").
 		Query(elastic.NewTermQuery("index._id", id)).
@@ -145,7 +145,7 @@ func (server *Server) UpdateBookTitleById(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "updated"})
 }
 
-func (server *Server) GetBookById(c *gin.Context) {
+func GetBookById(c *gin.Context) {
 	id, idOk := c.GetQuery("id")
 
 	missingFields := make([]string, 0)
@@ -158,7 +158,7 @@ func (server *Server) GetBookById(c *gin.Context) {
 		return
 	}
 
-	doc, err := server.ElasticClient.
+	doc, err := models.ElasticClient.
 		Search().
 		Index("books").
 		Query(elastic.NewTermQuery("index._id", id)).
@@ -183,7 +183,7 @@ func (server *Server) GetBookById(c *gin.Context) {
 	c.JSON(http.StatusOK, book)
 }
 
-func (server *Server) DeleteById(c *gin.Context) {
+func DeleteById(c *gin.Context) {
 	id, idOk := c.GetQuery("id")
 
 	missingFields := make([]string, 0)
@@ -197,7 +197,7 @@ func (server *Server) DeleteById(c *gin.Context) {
 		return
 	}
 
-	doc, err := server.ElasticClient.
+	doc, err := models.ElasticClient.
 		Delete().
 		Index("books").
 		Id(id).
@@ -211,20 +211,20 @@ func (server *Server) DeleteById(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "deleted", "id": doc.Id})
 }
 
-func (server *Server) Search(c *gin.Context) {
+func Search(c *gin.Context) {
 	title, titleOk := c.GetQuery("title")
 	authorName, authorNameOk := c.GetQuery("authorName")
 	price, priceOk := c.GetQuery("price")
 	ebookAvailable, ebookAvailableOk := c.GetQuery("ebookAvailable")
 	publishDate, publishDateOk := c.GetQuery("publishDate")
 
-	validationError := server.validateSearchBook(title, titleOk, authorName, authorNameOk, price, priceOk, ebookAvailable, ebookAvailableOk, publishDate, publishDateOk)
+	validationError := validateSearchBook(title, titleOk, authorName, authorNameOk, price, priceOk, ebookAvailable, ebookAvailableOk, publishDate, publishDateOk)
 	if validationError != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": validationError.Error()})
 		return
 	}
 
-	index := server.ElasticClient.Search().Index("books").Pretty(false).Size(10000)
+	index := models.ElasticClient.Search().Index("books").Pretty(false).Size(10000)
 
 	if titleOk && title != "" {
 		index.Query(elastic.NewMatchQuery("title", "*"+html.UnescapeString(title)+"*"))
@@ -282,8 +282,8 @@ func (server *Server) Search(c *gin.Context) {
 	c.JSON(http.StatusOK, books)
 }
 
-func (server *Server) Store(c *gin.Context) {
-	query := server.ElasticClient.Search().
+func Store(c *gin.Context) {
+	query := models.ElasticClient.Search().
 		Index("books").
 		Query(elastic.NewMatchAllQuery())
 
@@ -324,10 +324,10 @@ func (server *Server) Store(c *gin.Context) {
 	})
 }
 
-func (server *Server) Activity(c *gin.Context) {
+func Activity(c *gin.Context) {
 	username := c.Query("username")
 
-	get, err := server.RedisClient.LRange(username, 0, 2).Result()
+	get, err := models.RedisClient.LRange(username, 0, 2).Result()
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
@@ -348,7 +348,7 @@ func (server *Server) Activity(c *gin.Context) {
 	c.JSON(http.StatusOK, ops[:len(get)])
 }
 
-func (server *Server) CacheUserRequest(c *gin.Context) {
+func CacheUserRequest(c *gin.Context) {
 	operation := models.UserRequest{
 		Method: c.Request.Method,
 		Route:  c.Request.URL.Path,
@@ -357,13 +357,12 @@ func (server *Server) CacheUserRequest(c *gin.Context) {
 	username, ok := c.GetQuery("username")
 
 	if !ok {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "missing 'username' query parameter"})
 		return
 	}
 
 	obj, _ := json.Marshal(operation)
 	// Not failing a request if there's a problem caching it
-	server.RedisClient.LPush(username, obj)
-	server.RedisClient.LTrim(username, 0, 2)
+	models.RedisClient.LPush(username, obj)
+	models.RedisClient.LTrim(username, 0, 2)
 	c.Next()
 }
