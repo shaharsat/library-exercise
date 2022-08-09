@@ -18,7 +18,7 @@ func SetupRoutes() *gin.Engine {
 		cachedRoutes.GET("/book", handlers.GetBookById)
 		cachedRoutes.DELETE("/book", handlers.DeleteById)
 		cachedRoutes.GET("/search", handlers.Search)
-		cachedRoutes.GET("/stores", handlers.Store)
+		cachedRoutes.GET("/store", handlers.Store)
 	}
 
 	return routes

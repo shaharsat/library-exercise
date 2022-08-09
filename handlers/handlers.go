@@ -284,8 +284,7 @@ func Search(c *gin.Context) {
 
 func Store(c *gin.Context) {
 	query := models.ElasticClient.Search().
-		Index("books").
-		Query(elastic.NewMatchAllQuery())
+		Index("books")
 
 	titleAggregation := elastic.NewCardinalityAggregation().Field("_id")
 	authorsAggregation := elastic.NewCardinalityAggregation().Field("author_name.keyword")
@@ -301,27 +300,16 @@ func Store(c *gin.Context) {
 		return
 	}
 
-	var searchResult models.SearchResult
-	res, err := json.Marshal(results.Aggregations)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-			"message": err.Error(),
-		})
-		return
-	}
+	numberOfBooks, _ := results.Aggregations.Cardinality("number_of_books")
+	numberOfAuthors, _ := results.Aggregations.Cardinality("number_of_authors")
 
-	err = json.Unmarshal(res, &searchResult)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-			"message": err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"number_of_books":   searchResult.NumberOfBooks.Value,
-		"number_of_authors": searchResult.NumberOfBooks.Value,
-	})
+	c.JSON(
+		http.StatusOK,
+		gin.H{
+			"number_of_books":   numberOfBooks.Value,
+			"number_of_authors": numberOfAuthors.Value,
+		},
+	)
 }
 
 func Activity(c *gin.Context) {
