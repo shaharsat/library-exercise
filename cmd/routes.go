@@ -8,7 +8,7 @@ import (
 func SetupRoutes() *gin.Engine {
 	routes := gin.Default()
 
-	routes.GET("/activity:username", handlers.Activity)
+	routes.GET("/activity/:username", handlers.Activity)
 
 	cachedRoutes := routes.Group("/")
 	{

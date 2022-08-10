@@ -65,12 +65,14 @@ func GetBookById(c *gin.Context) {
 		Do(c)
 
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-		return
-	}
+		elasticErr := err.(*elastic.Error)
 
-	if !doc.Found {
-		c.JSON(http.StatusNotFound, gin.H{"message": fmt.Sprintf("book with Id: '%v' not found", id)})
+		if elasticErr != nil {
+			c.AbortWithStatusJSON(elasticErr.Status, gin.H{"message": elasticErr.Error()})
+			return
+		}
+
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 
@@ -216,7 +218,7 @@ func Activity(c *gin.Context) {
 
 	var userRequest models.UserRequest
 	for _, request := range userRequests {
-		err := json.Unmarshal([]byte(request), &userRequests)
+		err := json.Unmarshal([]byte(request), &userRequest)
 		if err != nil {
 			return
 		}

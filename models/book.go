@@ -8,10 +8,10 @@ import (
 
 type Book struct {
 	Title          string  `json:"title" binding:"required"`
-	AuthorName     string  `json:"author_name"`
-	Price          float64 `json:"price"`
-	EbookAvailable bool    `json:"ebook_available"`
-	PublishDate    Date    `json:"publish_date"`
+	AuthorName     string  `json:"author_name,omitempty"`
+	Price          float64 `json:"price,omitempty"`
+	EbookAvailable bool    `json:"ebook_available,omitempty"`
+	PublishDate    *Date   `json:"publish_date,omitempty"`
 }
 
 const PUBLISH_DATE_TIME_FORMAT = "2006-01-02"
