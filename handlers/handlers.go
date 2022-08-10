@@ -102,9 +102,14 @@ func DeleteBookById(c *gin.Context) {
 
 func SearchBooks(c *gin.Context) {
 	title := c.Query("title")
-	authorName := c.Query("author_ame")
+	authorName := c.Query("author_name")
 	minPrice, minPriceOk := c.GetQuery("min_price")
 	maxPrice, maxPriceOk := c.GetQuery("max_price")
+
+	if title == "" && authorName == "" && minPrice == "" && maxPrice == "" {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "at least one query parameter is required"})
+		return
+	}
 
 	index := models.ElasticClient.Search().Index(INDEX_NAME).Pretty(false).Size(10000)
 
