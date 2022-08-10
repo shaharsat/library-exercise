@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"gin/models"
 	"github.com/gin-gonic/gin"
 	"github.com/olivere/elastic/v7"
@@ -163,10 +162,7 @@ func SearchBooks(c *gin.Context) {
 
 	books := make([]models.Book, len(result.Hits.Hits))
 	for i, hit := range result.Hits.Hits {
-		err = json.Unmarshal(hit.Source, &books[i])
-		if err != nil {
-			fmt.Println(err)
-		}
+		json.Unmarshal(hit.Source, &books[i])
 	}
 
 	c.JSON(http.StatusOK, books)
