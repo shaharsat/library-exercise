@@ -83,7 +83,7 @@ func GetBookById(c *gin.Context) {
 	c.JSON(http.StatusOK, book)
 }
 
-func DeleteById(c *gin.Context) {
+func DeleteBookById(c *gin.Context) {
 	id := c.Param("id")
 
 	doc, err := models.ElasticClient.
@@ -100,9 +100,9 @@ func DeleteById(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "deleted", "id": doc.Id})
 }
 
-func Search(c *gin.Context) {
+func SearchBooks(c *gin.Context) {
 	title := c.Query("title")
-	authorName := c.Query("authorName")
+	authorName := c.Query("author_ame")
 	minPrice, minPriceOk := c.GetQuery("min_price")
 	maxPrice, maxPriceOk := c.GetQuery("max_price")
 
