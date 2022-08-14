@@ -1,25 +1,25 @@
-package models
+package config
 
 import (
 	"context"
 	"encoding/json"
-	"gin/config"
+	"gin/models"
 	"github.com/gin-gonic/gin"
 	"github.com/olivere/elastic/v7"
 	"html"
 	"strconv"
 )
 
-type ElasticLibrary struct {
+type ElasticLibraryDatabase struct {
 	IndexName string
 }
 
-func CreateElasticLibrary(indexName string) *ElasticLibrary {
-	return &ElasticLibrary{indexName}
+func CreateElasticLibrary(indexName string) *ElasticLibraryDatabase {
+	return &ElasticLibraryDatabase{indexName}
 }
 
-func (library *ElasticLibrary) Delete(id Id) error {
-	_, err := config.ElasticClient.
+func (library *ElasticLibraryDatabase) Delete(id Id) error {
+	_, err := ElasticClient.
 		Delete().
 		Index(library.IndexName).
 		Id(string(id)).
@@ -28,8 +28,8 @@ func (library *ElasticLibrary) Delete(id Id) error {
 	return err
 }
 
-func (library *ElasticLibrary) GetById(id Id) (*Book, error) {
-	doc, err := config.ElasticClient.
+func (library *ElasticLibraryDatabase) GetById(id Id) (*models.Book, error) {
+	doc, err := ElasticClient.
 		Get().
 		Index(library.IndexName).
 		Id(string(id)).
@@ -39,7 +39,7 @@ func (library *ElasticLibrary) GetById(id Id) (*Book, error) {
 		return nil, err
 	}
 
-	var book Book
+	var book models.Book
 	err = json.Unmarshal(doc.Source, &book)
 
 	if err != nil {
@@ -49,8 +49,8 @@ func (library *ElasticLibrary) GetById(id Id) (*Book, error) {
 	return &book, nil
 }
 
-func (library *ElasticLibrary) Search(title, authorName, minPrice, maxPrice string) ([]*Book, error) {
-	index := config.ElasticClient.Search().Index(library.IndexName).Pretty(false).Size(10000)
+func (library *ElasticLibraryDatabase) Search(title, authorName, minPrice, maxPrice string) ([]*models.Book, error) {
+	index := ElasticClient.Search().Index(library.IndexName).Pretty(false).Size(10000)
 
 	boolQuery := elastic.NewBoolQuery()
 	if title != "" {
@@ -93,7 +93,7 @@ func (library *ElasticLibrary) Search(title, authorName, minPrice, maxPrice stri
 		return nil, err
 	}
 
-	books := make([]*Book, result.Hits.TotalHits.Value)
+	books := make([]*models.Book, result.Hits.TotalHits.Value)
 	for i, hit := range result.Hits.Hits {
 		json.Unmarshal(hit.Source, &books[i])
 	}
@@ -101,8 +101,8 @@ func (library *ElasticLibrary) Search(title, authorName, minPrice, maxPrice stri
 	return books, nil
 }
 
-func (library *ElasticLibrary) Store() (map[string]interface{}, error) {
-	query := config.ElasticClient.Search().
+func (library *ElasticLibraryDatabase) Store() (map[string]interface{}, error) {
+	query := ElasticClient.Search().
 		Index(library.IndexName)
 
 	titleAggregation := elastic.NewCardinalityAggregation().Field("_id")
@@ -125,13 +125,13 @@ func (library *ElasticLibrary) Store() (map[string]interface{}, error) {
 	}, nil
 }
 
-func (library *ElasticLibrary) Create(book *Book) (Id, error) {
-	doc, err := config.ElasticClient.Index().Index(library.IndexName).BodyJson(book).Do(context.Background())
+func (library *ElasticLibraryDatabase) Create(book *models.Book) (Id, error) {
+	doc, err := ElasticClient.Index().Index(library.IndexName).BodyJson(book).Do(context.Background())
 	return Id(doc.Id), err
 }
 
-func (library *ElasticLibrary) Update(id Id, book *Book) error {
-	_, err := config.ElasticClient.
+func (library *ElasticLibraryDatabase) Update(id Id, book *models.Book) error {
+	_, err := ElasticClient.
 		Update().
 		Index(library.IndexName).
 		Id(string(id)).
