@@ -1,4 +1,4 @@
-package cmd
+package internal
 
 import (
 	"gin/handlers"
@@ -13,6 +13,7 @@ func SetupRoutes() *gin.Engine {
 	cachedRoutes := routes.Group("/")
 	{
 		cachedRoutes.Use(handlers.CacheUserRequest)
+
 		cachedRoutes.PUT("/book", handlers.CreateBook)
 		cachedRoutes.POST("/book/:id", handlers.UpdateBookTitleById)
 		cachedRoutes.GET("/book/:id", handlers.GetBookById)

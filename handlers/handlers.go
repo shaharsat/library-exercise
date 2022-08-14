@@ -2,15 +2,16 @@ package handlers
 
 import (
 	"encoding/json"
+	"gin/config"
 	"gin/models"
 	"github.com/gin-gonic/gin"
 	"github.com/olivere/elastic/v7"
-	"html"
 	"net/http"
-	"strconv"
 )
 
 const INDEX_NAME = "books"
+
+var ElasticLibrary = models.CreateElasticLibrary(INDEX_NAME)
 
 func CreateBook(c *gin.Context) {
 	var book models.Book
@@ -18,7 +19,7 @@ func CreateBook(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 	}
 
-	doc, err := models.ElasticClient.Index().Index(INDEX_NAME).BodyJson(book).Do(c)
+	id, err := ElasticLibrary.Create(&book)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
@@ -27,7 +28,7 @@ func CreateBook(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"status": "created",
-		"id":     doc.Id,
+		"id":     id,
 	})
 }
 
@@ -40,45 +41,28 @@ func UpdateBookTitleById(c *gin.Context) {
 		return
 	}
 
-	_, err := models.ElasticClient.
-		Update().
-		Index(INDEX_NAME).
-		Id(id).
-		Doc(gin.H{"title": book.Title}).
-		Do(c)
+	err := ElasticLibrary.Update(models.Id(id), book)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
+
 	c.JSON(http.StatusOK, gin.H{"status": "updated"})
 }
 
 func GetBookById(c *gin.Context) {
 	id := c.Param("id")
 
-	doc, err := models.ElasticClient.
-		Get().
-		Index(INDEX_NAME).
-		Id(id).
-		Do(c)
+	book, err := ElasticLibrary.GetById(models.Id(id))
 
-	if err != nil {
-		elasticErr := err.(*elastic.Error)
-
-		if elasticErr != nil {
-			c.AbortWithStatusJSON(elasticErr.Status, gin.H{"message": elasticErr.Error()})
-			return
-		}
-
+	switch t := err.(type) {
+	case *elastic.Error:
+		c.AbortWithStatusJSON(t.Status, gin.H{"message": t.Error()})
+		return
+	case error:
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
-	}
-
-	var book models.Book
-	err = json.Unmarshal(doc.Source, &book)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 	}
 
 	c.JSON(http.StatusOK, book)
@@ -87,98 +71,44 @@ func GetBookById(c *gin.Context) {
 func DeleteBookById(c *gin.Context) {
 	id := c.Param("id")
 
-	doc, err := models.ElasticClient.
-		Delete().
-		Index(INDEX_NAME).
-		Id(id).
-		Do(c)
+	err := ElasticLibrary.Delete(models.Id(id))
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "deleted", "id": doc.Id})
+	c.JSON(http.StatusOK, gin.H{"status": "deleted"})
 }
 
 func SearchBooks(c *gin.Context) {
 	title := c.Query("title")
 	authorName := c.Query("author_name")
-	minPrice, minPriceOk := c.GetQuery("min_price")
-	maxPrice, maxPriceOk := c.GetQuery("max_price")
+	minPrice := c.Query("min_price")
+	maxPrice := c.Query("max_price")
 
 	if title == "" && authorName == "" && minPrice == "" && maxPrice == "" {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "at least one query parameter is required"})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "at least one query parameter is required for search"})
 		return
 	}
 
-	index := models.ElasticClient.Search().Index(INDEX_NAME).Pretty(false).Size(10000)
+	books, err := ElasticLibrary.Search(title, authorName, minPrice, maxPrice)
 
-	boolQuery := elastic.NewBoolQuery()
-	if title != "" {
-		boolQuery.Must(elastic.NewMatchQuery("title", html.UnescapeString(title)))
-	}
-	if authorName != "" {
-		boolQuery.Must(elastic.NewMatchQuery("author_name", html.UnescapeString(authorName)))
-	}
-
-	priceRangeQuery := elastic.NewRangeQuery("price")
-
-	shouldIncludePriceRangeQuery := false
-	if minPriceOk {
-		price, err := strconv.ParseFloat(minPrice, 64)
-		if err == nil {
-			index.Query(priceRangeQuery.Gte(price))
-			shouldIncludePriceRangeQuery = true
-		} else {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-			return
-		}
-	}
-
-	if maxPriceOk {
-		price, err := strconv.ParseFloat(maxPrice, 64)
-		if err == nil {
-			index.Query(priceRangeQuery.Lte(price))
-			shouldIncludePriceRangeQuery = true
-		} else {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-			return
-		}
-	}
-
-	if shouldIncludePriceRangeQuery {
-		boolQuery.Must(priceRangeQuery)
-	}
-
-	index.Query(boolQuery)
-
-	result, err := index.Do(c)
-
-	if err != nil {
+	switch _ := err.(type) {
+	case *elastic.Error:
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
-	}
-
-	books := make([]models.Book, len(result.Hits.Hits))
-	for i, hit := range result.Hits.Hits {
-		json.Unmarshal(hit.Source, &books[i])
+	case error:
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
 	}
 
 	c.JSON(http.StatusOK, books)
 }
 
 func Store(c *gin.Context) {
-	query := models.ElasticClient.Search().
-		Index(INDEX_NAME)
+	store, err := ElasticLibrary.Store()
 
-	titleAggregation := elastic.NewCardinalityAggregation().Field("_id")
-	authorsAggregation := elastic.NewCardinalityAggregation().Field("author_name.keyword")
-	query.Aggregation("number_of_books", titleAggregation)
-	query.Aggregation("number_of_authors", authorsAggregation)
-	query.Size(0)
-
-	results, err := query.Do(c)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 			"message": err.Error(),
@@ -186,22 +116,16 @@ func Store(c *gin.Context) {
 		return
 	}
 
-	numberOfBooks, _ := results.Aggregations.Cardinality("number_of_books")
-	numberOfAuthors, _ := results.Aggregations.Cardinality("number_of_authors")
-
 	c.JSON(
 		http.StatusOK,
-		gin.H{
-			"number_of_books":   numberOfBooks.Value,
-			"number_of_authors": numberOfAuthors.Value,
-		},
+		store,
 	)
 }
 
 func Activity(c *gin.Context) {
 	username := c.Param("username")
 
-	userRequests, err := models.RedisClient.LRange(username, 0, 2).Result()
+	userRequests, err := config.RedisClient.LRange(username, 0, 2).Result()
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
@@ -210,7 +134,7 @@ func Activity(c *gin.Context) {
 		return
 	}
 
-	ops := make([]models.UserRequest, 0)
+	userRequestsRaw := make([]models.UserRequest, 0)
 
 	var userRequest models.UserRequest
 	for _, request := range userRequests {
@@ -218,14 +142,14 @@ func Activity(c *gin.Context) {
 		if err != nil {
 			return
 		}
-		ops = append(ops, userRequest)
+		userRequestsRaw = append(userRequestsRaw, userRequest)
 	}
 
-	c.JSON(http.StatusOK, ops)
+	c.JSON(http.StatusOK, userRequestsRaw)
 }
 
 func CacheUserRequest(c *gin.Context) {
-	operation := models.UserRequest{
+	userRequest := models.UserRequest{
 		Method: c.Request.Method,
 		Route:  c.Request.URL.Path,
 	}
@@ -236,9 +160,13 @@ func CacheUserRequest(c *gin.Context) {
 		return
 	}
 
-	obj, _ := json.Marshal(operation)
+	request, err := json.Marshal(userRequest)
+
 	// Not failing a request if there's a problem caching it
-	models.RedisClient.LPush(username, obj)
-	models.RedisClient.LTrim(username, 0, 2)
+	if err != nil {
+		config.RedisClient.LPush(username, request)
+		config.RedisClient.LTrim(username, 0, 2)
+	}
+
 	c.Next()
 }

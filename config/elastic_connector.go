@@ -1,4 +1,4 @@
-package models
+package config
 
 import (
 	"github.com/olivere/elastic/v7"

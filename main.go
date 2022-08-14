@@ -1,13 +1,13 @@
 package main
 
 import (
-	"gin/cmd"
-	"gin/models"
+	"gin/config"
+	"gin/internal"
 )
 
 func main() {
-	models.SetupRedis()
-	models.SetupElasticSearch()
-	routes := cmd.SetupRoutes()
+	config.SetupRedis()
+	config.SetupElasticSearch()
+	routes := internal.SetupRoutes()
 	routes.Run()
 }
