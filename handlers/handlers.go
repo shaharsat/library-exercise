@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"gin/config"
 	"gin/models"
 	"github.com/gin-gonic/gin"
 	"github.com/olivere/elastic/v7"
@@ -10,8 +9,10 @@ import (
 )
 
 const INDEX_NAME = "books"
+const MAX_NUMBER_CACHED = 3
 
 var ElasticLibrary = models.CreateElasticLibrary(INDEX_NAME)
+var RedisCache = models.CreateRedisCache(MAX_NUMBER_CACHED)
 
 func CreateBook(c *gin.Context) {
 	var book models.Book
@@ -125,7 +126,7 @@ func Store(c *gin.Context) {
 func Activity(c *gin.Context) {
 	username := c.Param("username")
 
-	userRequests, err := config.RedisClient.LRange(username, 0, 2).Result()
+	userRequests, err := RedisCache.Read(username)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
@@ -161,11 +162,8 @@ func CacheUserRequest(c *gin.Context) {
 	}
 
 	request, err := json.Marshal(userRequest)
-
-	// Not failing a request if there's a problem caching it
 	if err != nil {
-		config.RedisClient.LPush(username, request)
-		config.RedisClient.LTrim(username, 0, 2)
+		RedisCache.Write(username, request)
 	}
 
 	c.Next()
