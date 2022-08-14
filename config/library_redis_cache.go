@@ -9,8 +9,18 @@ func CreateRedisCache(maxNumber int) LibraryRedisCache {
 }
 
 func (library *LibraryRedisCache) Write(key string, value []byte) error {
-	RedisClient.LPush(key, value)
-	RedisClient.LTrim(key, 0, int64(library.MaxNumber-1))
+	pushCmd := RedisClient.LPush(key, value)
+
+	if pushCmd.Err() != nil {
+		return pushCmd.Err()
+	}
+
+	trimCmd := RedisClient.LTrim(key, 0, int64(library.MaxNumber-1))
+
+	if trimCmd.Err() != nil {
+		return trimCmd.Err()
+	}
+
 	return nil
 }
 
