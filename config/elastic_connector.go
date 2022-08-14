@@ -10,11 +10,10 @@ var ElasticClient *elastic.Client
 func SetupElasticSearch() {
 	elasticUrl := os.Getenv("ELASTIC_URL")
 
-	elasticClient, err := elastic.NewClient(elastic.SetURL(elasticUrl))
+	var err error
+	ElasticClient, err = elastic.NewClient(elastic.SetURL(elasticUrl))
 
 	if err != nil {
 		panic(err)
 	}
-
-	ElasticClient = elasticClient
 }
