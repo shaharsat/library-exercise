@@ -1,6 +1,6 @@
-package config
+package cache
 
-type LibraryCache interface {
+type LibraryCacheManager interface {
 	Write(key string, value []byte) bool
 	Read(n int) []string
 }

@@ -2,7 +2,8 @@ package service
 
 import (
 	"encoding/json"
-	"gin/config"
+	"gin/cache"
+	"gin/db"
 	"gin/models"
 	"github.com/gin-gonic/gin"
 	"github.com/olivere/elastic/v7"
@@ -12,8 +13,8 @@ import (
 const INDEX_NAME = "books"
 const MAX_NUMBER_CACHED = 3
 
-var ElasticLibrary = config.CreateElasticLibrary(INDEX_NAME)
-var RedisCache = config.CreateRedisCache(MAX_NUMBER_CACHED)
+var ElasticLibrary = db.CreateElasticLibrary(INDEX_NAME)
+var RedisCache = cache.CreateRedisCache(MAX_NUMBER_CACHED)
 
 func CreateBook(c *gin.Context) {
 	var book models.Book
@@ -43,7 +44,7 @@ func UpdateBookTitleById(c *gin.Context) {
 		return
 	}
 
-	err := ElasticLibrary.Update(config.Id(id), book)
+	err := ElasticLibrary.Update(db.Id(id), book)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
@@ -56,7 +57,7 @@ func UpdateBookTitleById(c *gin.Context) {
 func GetBookById(c *gin.Context) {
 	id := c.Param("id")
 
-	book, err := ElasticLibrary.GetById(config.Id(id))
+	book, err := ElasticLibrary.GetById(db.Id(id))
 
 	switch t := err.(type) {
 	case *elastic.Error:
@@ -73,7 +74,7 @@ func GetBookById(c *gin.Context) {
 func DeleteBookById(c *gin.Context) {
 	id := c.Param("id")
 
-	err := ElasticLibrary.Delete(config.Id(id))
+	err := ElasticLibrary.Delete(db.Id(id))
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})

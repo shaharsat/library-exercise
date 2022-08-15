@@ -1,8 +1,9 @@
-package config
+package db
 
 import (
 	"context"
 	"encoding/json"
+	"gin/config"
 	"gin/models"
 	"github.com/gin-gonic/gin"
 	"github.com/olivere/elastic/v7"
@@ -19,7 +20,7 @@ func CreateElasticLibrary(indexName string) *ElasticLibraryDatabase {
 }
 
 func (library *ElasticLibraryDatabase) Delete(id Id) error {
-	_, err := ElasticClient.
+	_, err := config.ElasticClient.
 		Delete().
 		Index(library.IndexName).
 		Id(string(id)).
@@ -29,7 +30,7 @@ func (library *ElasticLibraryDatabase) Delete(id Id) error {
 }
 
 func (library *ElasticLibraryDatabase) GetById(id Id) (*models.Book, error) {
-	doc, err := ElasticClient.
+	doc, err := config.ElasticClient.
 		Get().
 		Index(library.IndexName).
 		Id(string(id)).
@@ -50,7 +51,7 @@ func (library *ElasticLibraryDatabase) GetById(id Id) (*models.Book, error) {
 }
 
 func (library *ElasticLibraryDatabase) Search(title, authorName, minPrice, maxPrice string) ([]*models.Book, error) {
-	index := ElasticClient.Search().Index(library.IndexName).Pretty(false).Size(10000)
+	index := config.ElasticClient.Search().Index(library.IndexName).Pretty(false).Size(10000)
 
 	boolQuery := elastic.NewBoolQuery()
 	if title != "" {
@@ -102,7 +103,7 @@ func (library *ElasticLibraryDatabase) Search(title, authorName, minPrice, maxPr
 }
 
 func (library *ElasticLibraryDatabase) Store() (map[string]interface{}, error) {
-	query := ElasticClient.Search().
+	query := config.ElasticClient.Search().
 		Index(library.IndexName)
 
 	titleAggregation := elastic.NewCardinalityAggregation().Field("_id")
@@ -126,12 +127,12 @@ func (library *ElasticLibraryDatabase) Store() (map[string]interface{}, error) {
 }
 
 func (library *ElasticLibraryDatabase) Create(book *models.Book) (Id, error) {
-	doc, err := ElasticClient.Index().Index(library.IndexName).BodyJson(book).Do(context.Background())
+	doc, err := config.ElasticClient.Index().Index(library.IndexName).BodyJson(book).Do(context.Background())
 	return Id(doc.Id), err
 }
 
 func (library *ElasticLibraryDatabase) Update(id Id, book *models.Book) error {
-	_, err := ElasticClient.
+	_, err := config.ElasticClient.
 		Update().
 		Index(library.IndexName).
 		Id(string(id)).

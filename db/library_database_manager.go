@@ -1,10 +1,10 @@
-package config
+package db
 
 import "gin/models"
 
 type Id string
 
-type LibraryDatabase interface {
+type LibraryDatabaseManager interface {
 	Create(b *models.Book) (Id, error)
 	Update(id Id, book *models.Book) error
 	Delete(id Id) error
