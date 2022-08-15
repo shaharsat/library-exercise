@@ -2,12 +2,12 @@ package main
 
 import (
 	"gin/config"
-	"gin/internal"
+	"gin/service"
 )
 
 func main() {
 	config.SetupRedis()
 	config.SetupElasticSearch()
-	routes := internal.SetupRoutes()
+	routes := service.SetupRoutes()
 	routes.Run()
 }

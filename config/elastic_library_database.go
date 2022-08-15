@@ -54,7 +54,7 @@ func (library *ElasticLibraryDatabase) Search(title, authorName, minPrice, maxPr
 
 	boolQuery := elastic.NewBoolQuery()
 	if title != "" {
-		boolQuery.Must(elastic.NewMatchQuery("title", html.UnescapeString(title)))
+		boolQuery.Must(elastic.NewTermQuery("title", html.UnescapeString(title)))
 	}
 	if authorName != "" {
 		boolQuery.Must(elastic.NewMatchQuery("author_name", html.UnescapeString(authorName)))
