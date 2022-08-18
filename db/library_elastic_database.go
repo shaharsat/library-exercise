@@ -19,21 +19,21 @@ func CreateElasticLibrary(indexName string) *ElasticLibraryDatabase {
 	return &ElasticLibraryDatabase{indexName}
 }
 
-func (library *ElasticLibraryDatabase) Delete(id Id) error {
+func (library *ElasticLibraryDatabase) Delete(id string) error {
 	_, err := config.ElasticClient.
 		Delete().
 		Index(library.IndexName).
-		Id(string(id)).
+		Id(id).
 		Do(context.Background())
 
 	return err
 }
 
-func (library *ElasticLibraryDatabase) GetById(id Id) (*models.Book, error) {
+func (library *ElasticLibraryDatabase) GetById(id string) (*models.Book, error) {
 	doc, err := config.ElasticClient.
 		Get().
 		Index(library.IndexName).
-		Id(string(id)).
+		Id(id).
 		Do(context.Background())
 
 	if err != nil {
@@ -126,16 +126,16 @@ func (library *ElasticLibraryDatabase) Store() (map[string]interface{}, error) {
 	}, nil
 }
 
-func (library *ElasticLibraryDatabase) Create(book *models.Book) (Id, error) {
+func (library *ElasticLibraryDatabase) Create(book *models.Book) (string, error) {
 	doc, err := config.ElasticClient.Index().Index(library.IndexName).BodyJson(book).Do(context.Background())
-	return Id(doc.Id), err
+	return doc.Id, err
 }
 
-func (library *ElasticLibraryDatabase) Update(id Id, book *models.Book) error {
+func (library *ElasticLibraryDatabase) Update(id string, book *models.Book) error {
 	_, err := config.ElasticClient.
 		Update().
 		Index(library.IndexName).
-		Id(string(id)).
+		Id(id).
 		Doc(gin.H{"title": book.Title}).
 		Do(context.Background())
 
