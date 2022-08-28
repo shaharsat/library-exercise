@@ -12,6 +12,10 @@ import (
 
 const INDEX_NAME = "books"
 const MAX_NUMBER_CACHED = 3
+const STATUS_KEY = "status"
+const STATUS_DELETED = "deleted"
+const STATUS_CREATED = "created"
+const STATUS_UPDATED = "updated"
 
 var ElasticLibrary = db.CreateElasticLibrary(INDEX_NAME)
 var RedisCache = cache.CreateRedisCache(MAX_NUMBER_CACHED)
@@ -30,8 +34,8 @@ func CreateBook(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"status": "created",
-		"id":     id,
+		STATUS_KEY: STATUS_CREATED,
+		"id":       id,
 	})
 }
 
@@ -44,20 +48,20 @@ func UpdateBookTitleById(c *gin.Context) {
 		return
 	}
 
-	err := ElasticLibrary.Update(db.Id(id), book)
+	err := ElasticLibrary.Update(id, book)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "updated"})
+	c.JSON(http.StatusOK, gin.H{STATUS_KEY: STATUS_UPDATED})
 }
 
 func GetBookById(c *gin.Context) {
 	id := c.Param("id")
 
-	book, err := ElasticLibrary.GetById(db.Id(id))
+	book, err := ElasticLibrary.GetById(id)
 
 	switch t := err.(type) {
 	case *elastic.Error:
@@ -74,14 +78,14 @@ func GetBookById(c *gin.Context) {
 func DeleteBookById(c *gin.Context) {
 	id := c.Param("id")
 
-	err := ElasticLibrary.Delete(db.Id(id))
+	err := ElasticLibrary.Delete(id)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "deleted"})
+	c.JSON(http.StatusOK, gin.H{STATUS_KEY: STATUS_DELETED})
 }
 
 func SearchBooks(c *gin.Context) {
@@ -91,7 +95,7 @@ func SearchBooks(c *gin.Context) {
 	maxPrice := c.Query("max_price")
 
 	if title == "" && authorName == "" && minPrice == "" && maxPrice == "" {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "at least one query parameter is required for search"})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "no field to search by found"})
 		return
 	}
 
@@ -110,7 +114,7 @@ func SearchBooks(c *gin.Context) {
 }
 
 func Store(c *gin.Context) {
-	store, err := ElasticLibrary.Store()
+	numberOfBooks, numberOfAuthors, err := ElasticLibrary.Store()
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
@@ -119,9 +123,10 @@ func Store(c *gin.Context) {
 		return
 	}
 
-	c.JSON(
-		http.StatusOK,
-		store,
+	c.JSON(http.StatusOK, gin.H{
+		"number_of_books":   numberOfBooks,
+		"number_of_authors": numberOfAuthors,
+	},
 	)
 }
 
@@ -164,7 +169,7 @@ func CacheUserRequest(c *gin.Context) {
 	}
 
 	request, err := json.Marshal(userRequest)
-	if err != nil {
+	if err == nil {
 		RedisCache.Write(username, request)
 	}
 

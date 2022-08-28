@@ -2,7 +2,7 @@ package db
 
 import "gin/models"
 
-type LibraryDatabaseManager interface {
+type LibraryManager interface {
 	Create(b *models.Book) (string, error)
 	Update(id string, book *models.Book) error
 	Delete(id string) error

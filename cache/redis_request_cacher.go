@@ -2,15 +2,15 @@ package cache
 
 import "gin/config"
 
-type LibraryRedisCache struct {
+type RedisRequestCacher struct {
 	MaxNumber int
 }
 
-func CreateRedisCache(maxNumber int) LibraryRedisCache {
-	return LibraryRedisCache{maxNumber}
+func CreateRedisCache(maxNumber int) RedisRequestCacher {
+	return RedisRequestCacher{maxNumber}
 }
 
-func (library *LibraryRedisCache) Write(key string, value []byte) error {
+func (library *RedisRequestCacher) Write(key string, value []byte) error {
 	pushCmd := config.RedisClient.LPush(key, value)
 
 	if pushCmd.Err() != nil {
@@ -26,6 +26,6 @@ func (library *LibraryRedisCache) Write(key string, value []byte) error {
 	return nil
 }
 
-func (library *LibraryRedisCache) Read(key string) ([]string, error) {
+func (library *RedisRequestCacher) Read(key string) ([]string, error) {
 	return config.RedisClient.LRange(key, 0, int64(library.MaxNumber-1)).Result()
 }

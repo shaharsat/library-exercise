@@ -11,15 +11,15 @@ import (
 	"strconv"
 )
 
-type ElasticLibraryDatabase struct {
+type ElasticLibraryManager struct {
 	IndexName string
 }
 
-func CreateElasticLibrary(indexName string) *ElasticLibraryDatabase {
-	return &ElasticLibraryDatabase{indexName}
+func CreateElasticLibrary(indexName string) *ElasticLibraryManager {
+	return &ElasticLibraryManager{indexName}
 }
 
-func (library *ElasticLibraryDatabase) Delete(id string) error {
+func (library *ElasticLibraryManager) Delete(id string) error {
 	_, err := config.ElasticClient.
 		Delete().
 		Index(library.IndexName).
@@ -29,7 +29,7 @@ func (library *ElasticLibraryDatabase) Delete(id string) error {
 	return err
 }
 
-func (library *ElasticLibraryDatabase) GetById(id string) (*models.Book, error) {
+func (library *ElasticLibraryManager) GetById(id string) (*models.Book, error) {
 	doc, err := config.ElasticClient.
 		Get().
 		Index(library.IndexName).
@@ -50,7 +50,7 @@ func (library *ElasticLibraryDatabase) GetById(id string) (*models.Book, error) 
 	return &book, nil
 }
 
-func (library *ElasticLibraryDatabase) Search(title, authorName, minPrice, maxPrice string) ([]*models.Book, error) {
+func (library *ElasticLibraryManager) Search(title, authorName, minPrice, maxPrice string) ([]*models.Book, error) {
 	index := config.ElasticClient.Search().Index(library.IndexName).Pretty(false).Size(10000)
 
 	boolQuery := elastic.NewBoolQuery()
@@ -102,7 +102,7 @@ func (library *ElasticLibraryDatabase) Search(title, authorName, minPrice, maxPr
 	return books, nil
 }
 
-func (library *ElasticLibraryDatabase) Store() (map[string]interface{}, error) {
+func (library *ElasticLibraryManager) Store() (*float64, *float64, error) {
 	query := config.ElasticClient.Search().
 		Index(library.IndexName)
 
@@ -114,24 +114,21 @@ func (library *ElasticLibraryDatabase) Store() (map[string]interface{}, error) {
 
 	results, err := query.Do(context.Background())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	numberOfBooks, _ := results.Aggregations.Cardinality("number_of_books")
 	numberOfAuthors, _ := results.Aggregations.Cardinality("number_of_authors")
 
-	return map[string]interface{}{
-		"number_of_books":   numberOfBooks.Value,
-		"number_of_authors": numberOfAuthors.Value,
-	}, nil
+	return numberOfBooks.Value, numberOfAuthors.Value, nil
 }
 
-func (library *ElasticLibraryDatabase) Create(book *models.Book) (string, error) {
+func (library *ElasticLibraryManager) Create(book *models.Book) (string, error) {
 	doc, err := config.ElasticClient.Index().Index(library.IndexName).BodyJson(book).Do(context.Background())
 	return doc.Id, err
 }
 
-func (library *ElasticLibraryDatabase) Update(id string, book *models.Book) error {
+func (library *ElasticLibraryManager) Update(id string, book *models.Book) error {
 	_, err := config.ElasticClient.
 		Update().
 		Index(library.IndexName).
