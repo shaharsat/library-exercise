@@ -2,12 +2,13 @@ package main
 
 import (
 	"gin/config"
+	"gin/db"
 	"gin/service"
 )
 
 func main() {
 	config.SetupRedis()
-	config.SetupElasticSearch()
+	db.SetupElasticLibrary()
 	routes := service.SetupRoutes()
 	routes.Run()
 }

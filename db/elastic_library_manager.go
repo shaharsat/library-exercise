@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"encoding/json"
-	"gin/config"
 	"gin/models"
 	"github.com/gin-gonic/gin"
 	"github.com/olivere/elastic/v7"
@@ -12,20 +11,21 @@ import (
 )
 
 type ElasticLibraryManager struct {
-	IndexName string
+	IndexName     string
+	ElasticClient *elastic.Client
 }
 
-func CreateElasticLibrary(indexName string) *ElasticLibraryManager {
-	return &ElasticLibraryManager{indexName}
+func CreateElasticLibrary(indexName string, elasticClient *elastic.Client) *ElasticLibraryManager {
+	return &ElasticLibraryManager{indexName, elasticClient}
 }
 
 func (library *ElasticLibraryManager) Create(book *models.Book) (string, error) {
-	doc, err := config.ElasticClient.Index().Index(library.IndexName).BodyJson(book).Do(context.Background())
+	doc, err := library.ElasticClient.Index().Index(library.IndexName).BodyJson(book).Do(context.Background())
 	return doc.Id, err
 }
 
 func (library *ElasticLibraryManager) Update(id string, book *models.Book) error {
-	_, err := config.ElasticClient.
+	_, err := library.ElasticClient.
 		Update().
 		Index(library.IndexName).
 		Id(id).
@@ -36,7 +36,7 @@ func (library *ElasticLibraryManager) Update(id string, book *models.Book) error
 }
 
 func (library *ElasticLibraryManager) GetById(id string) (*models.Book, error) {
-	doc, err := config.ElasticClient.
+	doc, err := library.ElasticClient.
 		Get().
 		Index(library.IndexName).
 		Id(id).
@@ -57,7 +57,7 @@ func (library *ElasticLibraryManager) GetById(id string) (*models.Book, error) {
 }
 
 func (library *ElasticLibraryManager) Delete(id string) error {
-	_, err := config.ElasticClient.
+	_, err := library.ElasticClient.
 		Delete().
 		Index(library.IndexName).
 		Id(id).
@@ -100,7 +100,7 @@ func (library *ElasticLibraryManager) Search(title, authorName, minPrice, maxPri
 		boolQuery.Must(priceRangeQuery)
 	}
 
-	index := config.ElasticClient.Search().
+	index := library.ElasticClient.Search().
 		Index(library.IndexName).
 		Pretty(false).
 		Size(10000).
@@ -124,7 +124,7 @@ func (library *ElasticLibraryManager) Store() (*float64, *float64, error) {
 	titleAggregation := elastic.NewCardinalityAggregation().Field("_id")
 	authorsAggregation := elastic.NewCardinalityAggregation().Field("author_name.keyword")
 
-	query := config.ElasticClient.Search().
+	query := library.ElasticClient.Search().
 		Index(library.IndexName).
 		Aggregation("number_of_books", titleAggregation).
 		Aggregation("number_of_authors", authorsAggregation).

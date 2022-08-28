@@ -10,14 +10,12 @@ import (
 	"net/http"
 )
 
-const INDEX_NAME = "books"
 const MAX_NUMBER_CACHED = 3
 const STATUS_KEY = "status"
 const STATUS_DELETED = "deleted"
 const STATUS_CREATED = "created"
 const STATUS_UPDATED = "updated"
 
-var ElasticLibrary = db.CreateElasticLibrary(INDEX_NAME)
 var RedisCache = cache.CreateRedisCache(MAX_NUMBER_CACHED)
 
 func CreateBook(c *gin.Context) {
@@ -26,7 +24,7 @@ func CreateBook(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 	}
 
-	id, err := ElasticLibrary.Create(&book)
+	id, err := db.ElasticLibrary.Create(&book)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
@@ -48,7 +46,7 @@ func UpdateBookTitleById(c *gin.Context) {
 		return
 	}
 
-	err := ElasticLibrary.Update(id, book)
+	err := db.ElasticLibrary.Update(id, book)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
@@ -61,7 +59,7 @@ func UpdateBookTitleById(c *gin.Context) {
 func GetBookById(c *gin.Context) {
 	id := c.Param("id")
 
-	book, err := ElasticLibrary.GetById(id)
+	book, err := db.ElasticLibrary.GetById(id)
 
 	switch t := err.(type) {
 	case *elastic.Error:
@@ -78,7 +76,7 @@ func GetBookById(c *gin.Context) {
 func DeleteBookById(c *gin.Context) {
 	id := c.Param("id")
 
-	err := ElasticLibrary.Delete(id)
+	err := db.ElasticLibrary.Delete(id)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
@@ -99,7 +97,7 @@ func SearchBooks(c *gin.Context) {
 		return
 	}
 
-	books, err := ElasticLibrary.Search(title, authorName, minPrice, maxPrice)
+	books, err := db.ElasticLibrary.Search(title, authorName, minPrice, maxPrice)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
@@ -110,7 +108,7 @@ func SearchBooks(c *gin.Context) {
 }
 
 func Store(c *gin.Context) {
-	numberOfBooks, numberOfAuthors, err := ElasticLibrary.Store()
+	numberOfBooks, numberOfAuthors, err := db.ElasticLibrary.Store()
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
