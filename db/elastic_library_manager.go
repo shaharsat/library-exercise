@@ -19,11 +19,17 @@ func CreateElasticLibrary(indexName string) *ElasticLibraryManager {
 	return &ElasticLibraryManager{indexName}
 }
 
-func (library *ElasticLibraryManager) Delete(id string) error {
+func (library *ElasticLibraryManager) Create(book *models.Book) (string, error) {
+	doc, err := config.ElasticClient.Index().Index(library.IndexName).BodyJson(book).Do(context.Background())
+	return doc.Id, err
+}
+
+func (library *ElasticLibraryManager) Update(id string, book *models.Book) error {
 	_, err := config.ElasticClient.
-		Delete().
+		Update().
 		Index(library.IndexName).
 		Id(id).
+		Doc(gin.H{"title": book.Title}).
 		Do(context.Background())
 
 	return err
@@ -48,6 +54,16 @@ func (library *ElasticLibraryManager) GetById(id string) (*models.Book, error) {
 	}
 
 	return &book, nil
+}
+
+func (library *ElasticLibraryManager) Delete(id string) error {
+	_, err := config.ElasticClient.
+		Delete().
+		Index(library.IndexName).
+		Id(id).
+		Do(context.Background())
+
+	return err
 }
 
 func (library *ElasticLibraryManager) Search(title, authorName, minPrice, maxPrice string) ([]*models.Book, error) {
@@ -123,20 +139,4 @@ func (library *ElasticLibraryManager) Store() (*float64, *float64, error) {
 	numberOfAuthors, _ := results.Aggregations.Cardinality("number_of_authors")
 
 	return numberOfBooks.Value, numberOfAuthors.Value, nil
-}
-
-func (library *ElasticLibraryManager) Create(book *models.Book) (string, error) {
-	doc, err := config.ElasticClient.Index().Index(library.IndexName).BodyJson(book).Do(context.Background())
-	return doc.Id, err
-}
-
-func (library *ElasticLibraryManager) Update(id string, book *models.Book) error {
-	_, err := config.ElasticClient.
-		Update().
-		Index(library.IndexName).
-		Id(id).
-		Doc(gin.H{"title": book.Title}).
-		Do(context.Background())
-
-	return err
 }
