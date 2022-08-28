@@ -101,12 +101,8 @@ func SearchBooks(c *gin.Context) {
 
 	books, err := ElasticLibrary.Search(title, authorName, minPrice, maxPrice)
 
-	switch err.(type) {
-	case *elastic.Error:
+	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	case error:
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 
