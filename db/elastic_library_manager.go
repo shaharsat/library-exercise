@@ -51,8 +51,6 @@ func (library *ElasticLibraryManager) GetById(id string) (*models.Book, error) {
 }
 
 func (library *ElasticLibraryManager) Search(title, authorName, minPrice, maxPrice string) ([]*models.Book, error) {
-	index := config.ElasticClient.Search().Index(library.IndexName).Pretty(false).Size(10000)
-
 	boolQuery := elastic.NewBoolQuery()
 	if title != "" {
 		boolQuery.Must(elastic.NewTermQuery("title.keyword", title))
@@ -86,7 +84,11 @@ func (library *ElasticLibraryManager) Search(title, authorName, minPrice, maxPri
 		boolQuery.Must(priceRangeQuery)
 	}
 
-	index.Query(boolQuery)
+	index := config.ElasticClient.Search().
+		Index(library.IndexName).
+		Pretty(false).
+		Size(10000).
+		Query(boolQuery)
 
 	result, err := index.Do(context.Background())
 
@@ -103,14 +105,14 @@ func (library *ElasticLibraryManager) Search(title, authorName, minPrice, maxPri
 }
 
 func (library *ElasticLibraryManager) Store() (*float64, *float64, error) {
-	query := config.ElasticClient.Search().
-		Index(library.IndexName)
-
 	titleAggregation := elastic.NewCardinalityAggregation().Field("_id")
 	authorsAggregation := elastic.NewCardinalityAggregation().Field("author_name.keyword")
-	query.Aggregation("number_of_books", titleAggregation)
-	query.Aggregation("number_of_authors", authorsAggregation)
-	query.Size(0)
+
+	query := config.ElasticClient.Search().
+		Index(library.IndexName).
+		Aggregation("number_of_books", titleAggregation).
+		Aggregation("number_of_authors", authorsAggregation).
+		Size(0)
 
 	results, err := query.Do(context.Background())
 	if err != nil {
