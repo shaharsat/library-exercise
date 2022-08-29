@@ -16,7 +16,7 @@ var (
 	RedisRequestCache *RedisRequestCacher
 )
 
-func NewRedisCache(maxNumber int) *RedisRequestCacher {
+func NewRedisCacher(maxNumber int) *RedisRequestCacher {
 	Once.Do(func() {
 		redisUrl := os.Getenv("REDIS_URL")
 
@@ -31,13 +31,13 @@ func NewRedisCache(maxNumber int) *RedisRequestCacher {
 }
 
 func (r *RedisRequestCacher) Write(key string, value []byte) error {
-	pushCmd := NewRedisCache(r.MaxNumber).RedisClient.LPush(key, value)
+	pushCmd := NewRedisCacher(r.MaxNumber).RedisClient.LPush(key, value)
 
 	if pushCmd.Err() != nil {
 		return pushCmd.Err()
 	}
 
-	trimCmd := NewRedisCache(r.MaxNumber).RedisClient.LTrim(key, 0, int64(r.MaxNumber-1))
+	trimCmd := NewRedisCacher(r.MaxNumber).RedisClient.LTrim(key, 0, int64(r.MaxNumber-1))
 
 	if trimCmd.Err() != nil {
 		return trimCmd.Err()
@@ -47,5 +47,5 @@ func (r *RedisRequestCacher) Write(key string, value []byte) error {
 }
 
 func (r *RedisRequestCacher) Read(key string) ([]string, error) {
-	return NewRedisCache(r.MaxNumber).RedisClient.LRange(key, 0, int64(r.MaxNumber-1)).Result()
+	return NewRedisCacher(r.MaxNumber).RedisClient.LRange(key, 0, int64(r.MaxNumber-1)).Result()
 }

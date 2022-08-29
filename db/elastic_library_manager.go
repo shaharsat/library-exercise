@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"gin/models"
 	"github.com/gin-gonic/gin"
 	"github.com/olivere/elastic/v7"
@@ -18,22 +19,26 @@ type ElasticLibraryManager struct {
 }
 
 var (
-	Once              sync.Once
-	ElasticLibraryMan *ElasticLibraryManager
+	Once           sync.Once
+	ElasticLibrary *ElasticLibraryManager
 )
 
-func NewElasticLibrary(indexName string) *ElasticLibraryManager {
+func NewElasticLibrary(indexName string) (*ElasticLibraryManager, error) {
 	Once.Do(func() {
 		elasticClient, err := elastic.NewClient(elastic.SetURL(os.Getenv("ELASTIC_URL")))
 
 		if err != nil {
-			panic(err)
+			return
 		}
 
-		ElasticLibraryMan = &ElasticLibraryManager{indexName, elasticClient}
+		ElasticLibrary = &ElasticLibraryManager{indexName, elasticClient}
 	})
 
-	return ElasticLibraryMan
+	if ElasticLibrary == nil {
+		return nil, errors.New("failed to initialize Elastic Search client")
+	}
+
+	return ElasticLibrary, nil
 }
 
 func (library *ElasticLibraryManager) Create(book *models.Book) (string, error) {
