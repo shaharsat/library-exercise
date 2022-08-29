@@ -10,13 +10,11 @@ import (
 	"net/http"
 )
 
-const MAX_NUMBER_CACHED = 3
+const MAX_REQUESTS_TO_CACHE = 3
 const STATUS_KEY = "status"
 const STATUS_DELETED = "deleted"
 const STATUS_CREATED = "created"
 const STATUS_UPDATED = "updated"
-
-var RedisCache = cache.CreateRedisCache(MAX_NUMBER_CACHED)
 
 func CreateBook(c *gin.Context) {
 	var book models.Book
@@ -127,7 +125,7 @@ func Store(c *gin.Context) {
 func Activity(c *gin.Context) {
 	username := c.Param("username")
 
-	userRequests, err := RedisCache.Read(username)
+	userRequests, err := cache.NewRedisCache(3).Read(username)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
@@ -164,7 +162,7 @@ func CacheUserRequest(c *gin.Context) {
 
 	request, err := json.Marshal(userRequest)
 	if err == nil {
-		RedisCache.Write(username, request)
+		cache.NewRedisCache(MAX_REQUESTS_TO_CACHE).Write(username, request)
 	}
 
 	c.Next()
