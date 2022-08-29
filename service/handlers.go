@@ -10,6 +10,7 @@ import (
 	"net/http"
 )
 
+const INDEX_NAME = "books"
 const MAX_REQUESTS_TO_CACHE = 3
 const STATUS_KEY = "status"
 const STATUS_DELETED = "deleted"
@@ -22,7 +23,7 @@ func CreateBook(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 	}
 
-	id, err := db.ElasticLibrary.Create(&book)
+	id, err := db.NewElasticLibrary(INDEX_NAME).Create(&book)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
@@ -44,7 +45,7 @@ func UpdateBookTitleById(c *gin.Context) {
 		return
 	}
 
-	err := db.ElasticLibrary.Update(id, book)
+	err := db.NewElasticLibrary(INDEX_NAME).Update(id, book)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
@@ -57,7 +58,7 @@ func UpdateBookTitleById(c *gin.Context) {
 func GetBookById(c *gin.Context) {
 	id := c.Param("id")
 
-	book, err := db.ElasticLibrary.GetById(id)
+	book, err := db.NewElasticLibrary(INDEX_NAME).GetById(id)
 
 	switch t := err.(type) {
 	case *elastic.Error:
@@ -74,7 +75,7 @@ func GetBookById(c *gin.Context) {
 func DeleteBookById(c *gin.Context) {
 	id := c.Param("id")
 
-	err := db.ElasticLibrary.Delete(id)
+	err := db.NewElasticLibrary(INDEX_NAME).Delete(id)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
@@ -95,7 +96,7 @@ func SearchBooks(c *gin.Context) {
 		return
 	}
 
-	books, err := db.ElasticLibrary.Search(title, authorName, minPrice, maxPrice)
+	books, err := db.NewElasticLibrary(INDEX_NAME).Search(title, authorName, minPrice, maxPrice)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
@@ -106,7 +107,7 @@ func SearchBooks(c *gin.Context) {
 }
 
 func Store(c *gin.Context) {
-	numberOfBooks, numberOfAuthors, err := db.ElasticLibrary.Store()
+	numberOfBooks, numberOfAuthors, err := db.NewElasticLibrary(INDEX_NAME).Store()
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{

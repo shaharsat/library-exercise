@@ -7,7 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/olivere/elastic/v7"
 	"html"
+	"os"
 	"strconv"
+	"sync"
 )
 
 type ElasticLibraryManager struct {
@@ -15,8 +17,23 @@ type ElasticLibraryManager struct {
 	ElasticClient *elastic.Client
 }
 
-func CreateElasticLibrary(indexName string, elasticClient *elastic.Client) *ElasticLibraryManager {
-	return &ElasticLibraryManager{indexName, elasticClient}
+var (
+	Once              sync.Once
+	ElasticLibraryMan *ElasticLibraryManager
+)
+
+func NewElasticLibrary(indexName string) *ElasticLibraryManager {
+	Once.Do(func() {
+		elasticClient, err := elastic.NewClient(elastic.SetURL(os.Getenv("ELASTIC_URL")))
+
+		if err != nil {
+			panic(err)
+		}
+
+		ElasticLibraryMan = &ElasticLibraryManager{indexName, elasticClient}
+	})
+
+	return ElasticLibraryMan
 }
 
 func (library *ElasticLibraryManager) Create(book *models.Book) (string, error) {
