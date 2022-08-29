@@ -19,8 +19,8 @@ type ElasticLibraryManager struct {
 }
 
 var (
-	Once           sync.Once
-	ElasticLibrary *ElasticLibraryManager
+	Once             sync.Once
+	ESLibraryManager *ElasticLibraryManager
 )
 
 func NewElasticLibrary(indexName string) (*ElasticLibraryManager, error) {
@@ -31,14 +31,14 @@ func NewElasticLibrary(indexName string) (*ElasticLibraryManager, error) {
 			return
 		}
 
-		ElasticLibrary = &ElasticLibraryManager{indexName, elasticClient}
+		ESLibraryManager = &ElasticLibraryManager{indexName, elasticClient}
 	})
 
-	if ElasticLibrary == nil {
+	if ESLibraryManager == nil {
 		return nil, errors.New("failed to initialize Elastic Search client")
 	}
 
-	return ElasticLibrary, nil
+	return ESLibraryManager, nil
 }
 
 func (library *ElasticLibraryManager) Create(book *models.Book) (string, error) {
